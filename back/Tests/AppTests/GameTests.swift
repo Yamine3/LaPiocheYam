@@ -16,7 +16,7 @@ final class GameTests: XCTestCase {
             })
         }
     }
-
+    
     func testCreateGameWithEmptyTitleIsRejected() async throws {
         try await withApp { app in
             try await app.test(.POST, "games", beforeRequest: { req in
@@ -28,7 +28,7 @@ final class GameTests: XCTestCase {
             })
         }
     }
-
+    
     func testCreateGameWithInvertedPlayerBoundsIsRejected() async throws {
         try await withApp { app in
             try await app.test(.POST, "games", beforeRequest: { req in
@@ -40,31 +40,31 @@ final class GameTests: XCTestCase {
             })
         }
     }
-
+    
     func testListGames() async throws {
         try await withApp { app in
             _ = try await createGame(app, title: "Catan")
             _ = try await createGame(app, title: "Dixit")
-
+            
             try await app.test(.GET, "games", afterResponse: { res async throws in
                 XCTAssertEqual(res.status, .ok)
                 XCTAssertEqual(try res.content.decode([GameDTO].self).count, 2)
             })
         }
     }
-
+    
     func testShowGame() async throws {
         try await withApp { app in
             let game = try await createGame(app)
             let id = try XCTUnwrap(game.id)
-
+            
             try await app.test(.GET, "games/\(id)", afterResponse: { res async throws in
                 XCTAssertEqual(res.status, .ok)
                 XCTAssertEqual(try res.content.decode(GameDTO.self).id, id)
             })
         }
     }
-
+    
     func testShowUnknownGameReturnsNotFound() async throws {
         try await withApp { app in
             try await app.test(.GET, "games/\(UUID())", afterResponse: { res async throws in
@@ -72,7 +72,7 @@ final class GameTests: XCTestCase {
             })
         }
     }
-
+    
     func testShowGameWithMalformedIDReturnsBadRequest() async throws {
         try await withApp { app in
             try await app.test(.GET, "games/not-a-uuid", afterResponse: { res async throws in
@@ -80,7 +80,7 @@ final class GameTests: XCTestCase {
             })
         }
     }
-
+    
     func testPreflightRequestFromAnotherOriginIsAllowed() async throws {
         try await withApp { app in
             try await app.test(.OPTIONS, "games", beforeRequest: { req in
@@ -94,7 +94,7 @@ final class GameTests: XCTestCase {
             })
         }
     }
-
+    
     func testErrorResponsesCarryTheCorsHeaders() async throws {
         try await withApp { app in
             try await app.test(.GET, "games/not-a-uuid", beforeRequest: { req in
@@ -103,6 +103,41 @@ final class GameTests: XCTestCase {
                 XCTAssertEqual(res.status, .badRequest)
                 XCTAssertEqual(res.headers.first(name: .accessControlAllowOrigin), "*")
             })
+        }
+    }
+    
+    func testDeleteGame() async throws {
+        try await withApp { app in
+            let gameToDelete = try await createGame(app, title : "tag team")
+            
+            try await app.test(
+                .DELETE, "games/\(gameToDelete.id!)",
+                beforeRequest: { req in
+                    req.headers.replaceOrAdd(name: .origin, value: "http://localhost:8080")
+                }, afterResponse: { res async throws in
+                    XCTAssertEqual(res.status, .noContent)
+                })
+            
+        }
+    }
+    
+    func testUpdateGame() async throws {
+        try await withApp { app in
+            let gameToUpdate = try await createGame(app, title : "tag team")
+            
+            let updateDTO = UpdateGameDTO(title: "OuiOui", minPlayers: 10, maxPlayers: 13, durationMinutes: 50)
+            
+            try await app.test(
+                .PUT, "games/\(gameToUpdate.id!)",
+                beforeRequest: { req in
+                    req.headers.replaceOrAdd(name: .origin, value: "http://localhost:8080")
+                    try req.content.encode(updateDTO)
+                }, afterResponse: { res async throws in
+                    XCTAssertEqual(res.status, .ok)
+                    let updated = try await Game.find(gameToUpdate.id, on: app.db)
+                    XCTAssertEqual(updated!.title, "OuiOui")
+                })
+            
         }
     }
 }
