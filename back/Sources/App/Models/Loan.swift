@@ -3,7 +3,7 @@ import Vapor
 
 final class Loan: Model, @unchecked Sendable {
     static let schema = "loans"
-    static let durationInDays = 13
+    static let durationInDays = 14
 
     @ID(key: .id)
     var id: UUID?
@@ -37,7 +37,7 @@ final class Loan: Model, @unchecked Sendable {
 extension Loan {
     static func dueDate(from start: Date) throws -> Date {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.timeZone = TimeZone(secondsFromGMT: 0 )!
         guard let due = calendar.date(byAdding: .day, value: durationInDays, to: start) else {
             throw Abort(.internalServerError, reason: "Could not compute the due date")
         }
