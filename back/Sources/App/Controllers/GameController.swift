@@ -10,7 +10,7 @@ struct GameController: RouteCollection {
         games.put(":gameID", use: update)
         games.delete(":gameID", use: delete)
     }
-
+    
     @Sendable
     func index(req: Request) async throws -> [GameDTO] {
         let games = try await Game.query(on: req.db)
@@ -18,23 +18,23 @@ struct GameController: RouteCollection {
             .all()
         return games.map { $0.toDTO() }
     }
-
+    
     @Sendable
     func create(req: Request) async throws -> Response {
         try CreateGameDTO.validate(content: req)
         let dto = try req.content.decode(CreateGameDTO.self)
         try dto.ensureConsistentPlayerCount()
-
+        
         let game = dto.toModel()
         try await game.save(on: req.db)
         return try await game.toDTO().encodeResponse(status: .created, for: req)
     }
-
+    
     @Sendable
     func show(req: Request) async throws -> GameDTO {
         try await findGame(req).toDTO()
     }
-
+    
     private func findGame(_ req: Request) async throws -> Game {
         guard let gameID = req.parameters.get("gameID", as: UUID.self) else {
             throw Abort(.badRequest, reason: "Invalid game id")
@@ -43,7 +43,7 @@ struct GameController: RouteCollection {
             .filter(\.$id == gameID)
             .with(\.$loans)
             .first()
-        else {
+                else {
             throw Abort(.notFound, reason: "Game not found")
         }
         return game
@@ -56,12 +56,12 @@ struct GameController: RouteCollection {
         
         let dto = try req.content.decode(UpdateGameDTO.self)
         try dto.ensureConsistentPlayerCount()
-
+        
         game.title = dto.title
         game.minPlayers = dto.minPlayers
         game.maxPlayers = dto.maxPlayers
         game.durationMinutes = dto.durationMinutes
-
+        
         try await game.save(on: req.db)
         return try await game.toDTO().encodeResponse(for: req)
     }
@@ -69,6 +69,10 @@ struct GameController: RouteCollection {
     @Sendable
     func delete(req: Request) async throws -> HTTPStatus {
         let game = try await findGame(req)
+        
+        guard game.loans.isEmpty else {
+            throw Abort(.conflict, reason: "A game with loans cannot be deleted")
+        }
         
         try await req.db.transaction { db in
             try await game.delete(on: db)
