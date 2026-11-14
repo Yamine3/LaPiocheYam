@@ -107,6 +107,10 @@ function gameCard(game) {
     actions.append(button("Emprunter", () => openBorrowDialog(game), "primary"));
   }
 
+  actions.append(button("Modifier", () => openEditDialog(game)));
+
+  actions.append(button("Supprimer", () => openDeleteDialog(game), "danger"));
+
   return el(
     "li",
     { class: "card" },
@@ -118,21 +122,58 @@ function gameCard(game) {
 
 const gameDialog = $("#game-dialog");
 const gameForm = $("#game-form");
+const deleteDialog = $("#delete-dialog");
+let editedGame = null;
+let gameToDelete = null;
 
 $("#add-game").addEventListener("click", () => {
+  editedGame = null;
   gameForm.reset();
   showFormError(gameDialog, null);
   gameDialog.showModal();
 });
 
-bindSubmit(gameDialog, gameForm, (data) =>
-  api.createGame({
+bindSubmit(gameDialog, gameForm, function (data) {
+  const game = {
     title: data.get("title").trim(),
     minPlayers: Number(data.get("minPlayers")),
     maxPlayers: Number(data.get("maxPlayers")),
     durationMinutes: Number(data.get("durationMinutes")),
-  }),
-);
+  };
+
+  if (editedGame === null) {
+    return api.createGame(game);
+  } else {
+    return api.updateGame(editedGame.id, game);
+  }
+});
+
+function openEditDialog(game) {
+  editedGame = game;
+  gameForm.elements.title.value = game.title;
+  gameForm.elements.minPlayers.value = game.minPlayers;
+  gameForm.elements.maxPlayers.value = game.maxPlayers;
+  gameForm.elements.durationMinutes.value = game.durationMinutes;
+  gameDialog.showModal();
+}
+
+function openDeleteDialog(game) {
+  gameToDelete = game;
+  $("#delete-message").textContent = "Voulez-vous vraiment supprimer « " + game.title + " » ?";
+  showFormError(deleteDialog, null);
+  deleteDialog.showModal();
+}
+
+$("#confirm-delete").addEventListener("click", async function () {
+  showFormError(deleteDialog, null);
+  try {
+    await api.deleteGame(gameToDelete.id);
+    deleteDialog.close();
+    await refresh();
+  } catch (error) {
+    showFormError(deleteDialog, error);
+  }
+});
 
 // --- Emprunts --------------------------------------------------------------
 
