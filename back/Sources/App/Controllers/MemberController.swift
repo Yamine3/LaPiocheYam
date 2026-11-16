@@ -7,6 +7,8 @@ struct MemberController: RouteCollection {
         members.get(use: index)
         members.post(use: create)
         members.get(":memberID", use: show)
+        members.put(":memberID", use: update)
+        members.delete(":memberID", use: delete)
     }
 
     @Sendable
@@ -40,5 +42,55 @@ struct MemberController: RouteCollection {
             throw Abort(.notFound, reason: "Member not found")
         }
         return member.toDTO()
+    }
+    
+    private func findMember(_ req: Request) async throws -> Member {
+        guard let memberID = req.parameters.get("memberID", as: UUID.self) else {
+            throw Abort(.badRequest, reason: "Invalid member id")
+        }
+        guard let member = try await Member.query(on: req.db)
+            .filter(\.$id == memberID)
+            .with(\.$loans)
+            .first()
+                else {
+            throw Abort(.notFound, reason: "Member not found")
+        }
+        return member
+    }
+    
+    @Sendable
+    func update(req: Request) async throws -> MemberDTO {
+        try UpdateMemberDTO.validate(content: req)
+        let member = try await findMember(req)
+        
+        let dto = try req.content.decode(UpdateMemberDTO.self)
+        
+        let emailTaken = try await Member.query(on: req.db)
+            .filter(\.$email == dto.email)
+            .filter(\.$id != member.id!)
+            .count() > 0
+        guard !emailTaken else {
+            throw Abort(.conflict, reason: "A member with this email already exists")
+        }
+        
+        member.name = dto.name
+        member.email = dto.email
+
+        try await member.save(on: req.db)
+        return member.toDTO()
+    }
+    
+    @Sendable
+    func delete(req: Request) async throws -> HTTPStatus {
+        let member = try await findMember(req)
+
+        guard member.loans.isEmpty else {
+            throw Abort(.conflict, reason: "A member with loans cannot be deleted")
+        }
+
+        try await req.db.transaction { db in
+            try await member.delete(on: db)
+        }
+        return .noContent
     }
 }
