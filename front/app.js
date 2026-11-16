@@ -212,24 +212,67 @@ async function loadMembers() {
 }
 
 function memberRow(member) {
+  const actions = el("div", { class: "actions" });
+  actions.append(button("Modifier", () => openEditMemberDialog(member)));
+  actions.append(button("Supprimer", () => openDeleteMemberDialog(member), "danger"));
+
   return el(
     "li",
     { class: "row" },
     el("div", { class: "row-main" }, el("p", {}, el("strong", {}, member.name)), el("p", { class: "meta" }, member.email)),
+    actions
   );
 }
 
 const memberDialog = $("#member-dialog");
 const memberForm = $("#member-form");
+const deleteMemberDialog = $("#delete-member-dialog");
+let editedMember = null;
+let memberToDelete = null;
 
 $("#add-member").addEventListener("click", () => {
+  editedMember = null;
   memberForm.reset();
   showFormError(memberDialog, null);
   memberDialog.showModal();
 });
 
-bindSubmit(memberDialog, memberForm, (data) =>
-  api.createMember({ name: data.get("name").trim(), email: data.get("email").trim() }),
-);
+bindSubmit(memberDialog, memberForm, function (data) {
+  const member = {
+    name: data.get("name").trim(),
+    email: data.get("email").trim(),
+  };
+
+  if (editedMember === null) {
+    return api.createMember(member);
+  } else {
+    return api.updateMember(editedMember.id, member);
+  }
+});
+
+function openEditMemberDialog(member) {
+  editedMember = member;
+  memberForm.elements.name.value = member.name;
+  memberForm.elements.email.value = member.email;
+  memberDialog.showModal();
+}
+
+function openDeleteMemberDialog(member) {
+  memberToDelete = member;
+  $("#delete-member-message").textContent = "Voulez-vous vraiment supprimer « " + member.name + " » ?";
+  showFormError(deleteMemberDialog, null);
+  deleteMemberDialog.showModal();
+}
+
+$("#confirm-delete-member").addEventListener("click", async function () {
+  showFormError(deleteMemberDialog, null);
+  try {
+    await api.deleteMember(memberToDelete.id);
+    deleteMemberDialog.close();
+    await refresh();
+  } catch (error) {
+    showFormError(deleteMemberDialog, error);
+  }
+});
 
 refresh();

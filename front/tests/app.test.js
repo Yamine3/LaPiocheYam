@@ -203,3 +203,72 @@ test("an email already in use is shown in French", async () => {
   await waitFor(() => !app.$("#member-dialog .form-error").hidden, "le message d'erreur");
   assertIncludes(app.$("#member-dialog .form-error").textContent, "utilise déjà cette adresse e-mail");
 });
+
+test("update an existing member", async () => {
+  const app = await mountApp({
+    "GET /members": [camille],
+    "PUT /members/m1": [200, { ...camille, name: "Caca" }],
+  }, { hash: "#members" });
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+
+  app.click("Modifier", app.$("#members-list .row"));
+  const form = app.$("#member-form");
+  assertEqual(form.elements.name.value, "Camille");
+  assertEqual(form.elements.email.value, "camille@example.com");
+
+  form.elements.name.value = "  Caca ";
+  form.requestSubmit();
+
+  await waitFor(() => app.calls.some((call) => call.method === "PUT" && call.path === "/members/m1"), "l'appel PUT /members/m1");
+  assertEqual(app.calls.find((call) => call.method === "PUT").body, {
+    name: "Caca",
+    email: "camille@example.com",
+  });
+  await waitFor(() => !app.$("#member-dialog").open, "la boîte se ferme");
+});
+
+test("updating a member that no longer exists", async () => {
+  const app = await mountApp({
+    "GET /members": [camille],
+    "PUT /members/m1": [404, { error: true, reason: "Member not found" }],
+  }, { hash: "#members" });
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+
+  app.click("Modifier", app.$("#members-list .row"));
+  app.$("#member-form").requestSubmit();
+
+  await waitFor(() => !app.$("#member-dialog .form-error").hidden, "le message d'erreur");
+  assertIncludes(app.$("#member-dialog .form-error").textContent, "n'existe pas");
+  assertTrue(app.$("#member-dialog").open, "le formulaire devrait rester ouvert");
+});
+
+test("deleting a member with loans shows a message", async () => {
+  const app = await mountApp({
+    "GET /members": [camille],
+    "DELETE /members/m1": [409, { error: true, reason: "A member with loans cannot be deleted" }],
+  }, { hash: "#members" });
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  app.click("Supprimer", app.$("#members-list .row"))
+  app.click("Supprimer", app.$("#delete-member-dialog"))
+
+  await waitFor(() => !app.$("#delete-member-dialog .form-error").hidden, "le message d'erreur");
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  assertTrue(app.$("#delete-member-dialog").open, "la confirmation devrait rester ouverte")
+});
+
+test("successfully deleting a member", async () => {
+  let members = [camille];
+  const app = await mountApp({
+    "GET /members": () => members,
+    "DELETE /members/m1": () => {
+      members = [];
+      return [204];
+    },
+  }, { hash: "#members" });
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  app.click("Supprimer", app.$("#members-list .row"));
+  app.click("Supprimer", app.$("#delete-member-dialog"));
+
+  await waitFor(() => app.$$("#members-list .row").length === 0, "plus aucune ligne");
+  assertTrue(!app.$("#delete-member-dialog").open, "la confirmation devrait se fermer");
+});
