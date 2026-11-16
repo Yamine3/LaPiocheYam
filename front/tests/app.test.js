@@ -32,6 +32,8 @@ test("with no game, a message invites to add one", async () => {
   assertIncludes(app.$("#games-empty").textContent, "Ajouter un jeu");
 });
 
+
+
 test("adding a game posts the form then reloads the list", async () => {
   const app = await mountApp({ "GET /games": [catan], "POST /games": [201, { ...catan, id: "g3", title: "Dixit" }] });
   await waitFor(() => app.$$("#games-list .card").length === 1);
@@ -63,6 +65,79 @@ test("a validation error is shown in French and the dialog stays open", async ()
   await waitFor(() => !app.$("#game-dialog .form-error").hidden, "le message d'erreur");
   assertEqual(app.$("#game-dialog .form-error").textContent, "Le titre est obligatoire. La durée doit être d'au moins 1.");
   assertTrue(app.$("#game-dialog").open, "la boîte devrait rester ouverte");
+});
+
+test("update an existing game", async () => {
+  const app = await mountApp({
+    "GET /games": [catan],
+    "PUT /games/g1": [200, { ...catan, title: "Dixit" }],
+  });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+
+  app.click("Modifier", cardOf(app, "Catan"));
+  const form = app.$("#game-form");
+  assertEqual(form.elements.title.value, "Catan");
+
+  form.elements.title.value = "  Dixit ";
+  form.elements.minPlayers.value = "3";
+  form.elements.maxPlayers.value = "6";
+  form.elements.durationMinutes.value = "30";
+  form.requestSubmit();
+
+  await waitFor(() => app.calls.some((call) => call.method === "PUT" && call.path === "/games/g1"), "l'appel PUT /games/g1");
+  assertEqual(app.calls.find((call) => call.method === "PUT").body, {
+    title: "Dixit",
+    minPlayers: 3,
+    maxPlayers: 6,
+    durationMinutes: 30,
+  });
+  await waitFor(() => !app.$("#game-dialog").open, "la boîte se ferme");
+});
+
+test("updating a game that no longer exist ", async () => {
+  const app = await mountApp({
+    "GET /games": [catan],
+    "PUT /games/g1": [404, { error: true, reason: "Game not found" }],
+  });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+
+  app.click("Modifier", cardOf(app, "Catan"));
+  app.$("#game-form").requestSubmit();
+
+  await waitFor(() => !app.$("#game-dialog .form-error").hidden, "le message d'erreur");
+  assertIncludes(app.$("#game-dialog .form-error").textContent, "n'existe pas");
+  assertTrue(app.$("#game-dialog").open, "le formulaire devrait rester ouvert");
+});
+
+test("deleting a game with loans shows a message", async () => {
+  const app = await mountApp({
+    "GET /games": [dixit],
+    "DELETE /games/g2": [409, { error: true, reason: "A game with loans cannot be deleted" }],
+  });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.click("Supprimer", cardOf(app, "Dixit"))
+  app.click("Supprimer", app.$("#delete-dialog"))
+
+  await waitFor(() => !app.$("#delete-dialog .form-error").hidden, "le message d'erreur");
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  assertTrue(app.$("#delete-dialog").open, "la confirmation devrait rester ouverte")
+});
+
+test("successfully deleting a game", async () => {
+  let games = [catan];
+  const app = await mountApp({
+    "GET /games": () => games,
+    "DELETE /games/g1": () => {
+      games = [];
+      return [204];
+    },
+  });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.click("Supprimer", cardOf(app, "Catan"));
+  app.click("Supprimer", app.$("#delete-dialog"));
+
+  await waitFor(() => app.$$("#games-list .card").length === 0, "plus aucune carte");
+  assertTrue(!app.$("#delete-dialog").open, "la confirmation devrait se fermer");
 });
 
 // --- Emprunts
