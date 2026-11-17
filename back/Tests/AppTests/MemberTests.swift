@@ -74,8 +74,26 @@ final class MemberTests: XCTestCase {
                     let updated = try await Member.find(memberToUpdate.id, on: app.db)
                     XCTAssertEqual(updated!.name, "Ouipuoi")
                     XCTAssertEqual(updated!.email, "Ouipuoi@gmail.com")
-                })
-            
+                }
+            )
+        }
+    }
+    
+    func testMemberLoans() async throws {
+        try await withApp { app in
+            let game = try await createGame(app, title: "Catan")
+            let gameID = try XCTUnwrap(game.id)
+            let member = try await createMember(app)
+            let memberID = try XCTUnwrap(member.id)
+
+            let now = Date()
+            try await insertLoan(app, gameID: gameID, memberID: memberID, borrowedAt: now, dueAt: try Loan.dueDate(from: now))
+
+            try await app.test(.GET, "members/\(memberID)/loans", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                let loans = try res.content.decode([LoanDTO].self)
+                XCTAssertEqual(loans.count, 1)
+            })
         }
     }
 }
