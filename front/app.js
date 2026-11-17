@@ -103,8 +103,11 @@ function gameCard(game) {
     : el("span", { class: "badge busy" }, "Emprunté");
 
   const actions = el("div", { class: "actions" });
+
   if (game.isAvailable) {
     actions.append(button("Emprunter", () => openBorrowDialog(game), "primary"));
+  } else {
+    actions.append(button("Rendre", () => returnGame(game), "primary"))
   }
 
   actions.append(button("Modifier", () => openEditDialog(game)));
@@ -212,6 +215,32 @@ bindSubmit(borrowDialog, borrowForm, async (data) => {
   toast(`« ${borrowedGame.title} » emprunté, à rendre avant le ${formatDate(loan.dueAt)}.`);
 });
 
+async function findCurrentLoan(game) {
+  const members = await api.listMembers();
+  for (const member of members) {
+    const loans = await api.listMemberLoans(member.id);
+    for (const loan of loans) {
+      if (loan.gameID === game.id && !loan.returnedAt) {
+        return loan;
+      }
+    }
+  }
+  return null;
+}
+
+async function returnGame(game) {
+  await run(async function () {
+    const loan = await findCurrentLoan(game);
+    if (loan === null) {
+      toast("Aucun emprunt en cours pour ce jeu.", true);
+      return;
+    }
+    await api.returnGame(loan.id);
+    toast(game.title + " rendu.");
+    await refresh();
+  });
+}
+
 function loanStatusBadge(loan) {
   if (loan.returnedAt) {
     return el("span", { class: "badge ok" }, "Rendu");
@@ -257,7 +286,6 @@ async function openLoansDialog(member) {
     loansDialog.showModal();
   });
 }
-
 
 // --- Adhérent·es -----------------------------------------------------------
 
