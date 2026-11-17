@@ -24,7 +24,8 @@
         <h2>Jeux</h2>
         <button type="button" id="add-game" class="primary">Ajouter un jeu</button>
       </div>
-      <p id="games-empty" class="empty" hidden>La ludothèque ne contient aucun jeu pour le moment. Cliquez sur « Ajouter un jeu » pour créer le premier.</p>
+      <p id="games-empty" class="empty" hidden>La ludothèque ne contient aucun jeu pour le moment. Cliquez sur « Ajouter
+        un jeu » pour créer le premier.</p>
       <ul id="games-list" class="cards"></ul>
     </section>
 
@@ -33,7 +34,8 @@
         <h2>Adhérent·es</h2>
         <button type="button" id="add-member" class="primary">Ajouter un·e adhérent·e</button>
       </div>
-      <p id="members-empty" class="empty" hidden>Aucun·e adhérent·e pour le moment. Cliquez sur « Ajouter un·e adhérent·e » pour créer le premier ou la première.</p>
+      <p id="members-empty" class="empty" hidden>Aucun·e adhérent·e pour le moment. Cliquez sur « Ajouter un·e
+        adhérent·e » pour créer le premier ou la première.</p>
       <ul id="members-list" class="rows"></ul>
     </section>
   </main>
@@ -91,7 +93,7 @@
   <dialog id="borrow-dialog">
     <form method="dialog" id="borrow-form">
       <h2 id="borrow-dialog-title"></h2>
-      <label>Adhérent·e
+      <label>Adhérente
         <select name="memberID" required></select>
       </label>
       <p class="hint">Retour prévu dans 14 jours.</p>
@@ -101,6 +103,15 @@
         <button type="submit" class="primary">Emprunter</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="loans-dialog">
+    <h2 id="loans-dialog-title"></h2>
+    <p id="loans-empty" class="empty" hidden>Cet·te adhérent·e n'a encore emprunté aucun jeu.</p>
+    <ul id="loans-list" class="rows"></ul>
+    <div class="actions">
+      <button type="button" data-cancel>Fermer</button>
+    </div>
   </dialog>
 
   <div id="toasts" role="status" aria-live="polite"></div>

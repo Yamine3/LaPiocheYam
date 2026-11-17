@@ -113,6 +113,7 @@ export const api = {
   deleteGame: (id) => request("DELETE", "/games/" + id),
 
   listMembers: () => request("GET", "/members"),
+  listMemberLoans: (id) => request("GET" , "/members/" + id + "/loans"),
   createMember: (member) => request("POST", "/members", member),
   updateMember: (id, member) => request("PUT", "/members/" + id, member),
   deleteMember: (id) => request("DELETE", "/members/" + id),

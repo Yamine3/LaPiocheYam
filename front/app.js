@@ -175,6 +175,15 @@ $("#confirm-delete").addEventListener("click", async function () {
   }
 });
 
+function findGame(games, gameID) {
+  for(const game of games) {
+    if (game.id == gameID) {
+      return game;
+    }
+  }
+  return null;
+}
+
 // --- Emprunts --------------------------------------------------------------
 
 const borrowDialog = $("#borrow-dialog");
@@ -203,6 +212,53 @@ bindSubmit(borrowDialog, borrowForm, async (data) => {
   toast(`« ${borrowedGame.title} » emprunté, à rendre avant le ${formatDate(loan.dueAt)}.`);
 });
 
+function loanStatusBadge(loan) {
+  if (loan.returnedAt) {
+    return el("span", { class: "badge ok" }, "Rendu");
+  }
+  if (new Date(loan.dueAt) < new Date()) {
+    return el("span", { class: "badge late" }, "En retard");
+  }
+  return el("span", { class: "badge busy" }, "En cours");
+}
+
+function loanRow(loan, games) {
+  const game = findGame(games, loan.gameID);
+
+  let title = "Jeu inconnu";
+  if (game !== null) {
+    title = game.title;
+  }
+
+  return el(
+    "li",
+    { class: "row" },
+    el(
+      "div",
+      { class: "row-main" },
+      el("p", {}, el("strong", {}, title)),
+      el("p", { class: "infos-loans" }, "Emprunté le " + formatDate(loan.borrowedAt) + " · à rendre avant le " + formatDate(loan.dueAt)),
+    ),
+    loanStatusBadge(loan),
+  );
+}
+
+const loansDialog = $("#loans-dialog");
+
+async function openLoansDialog(member) {
+  await run(async function () {
+    const loans = await api.listMemberLoans(member.id);
+    const games = await api.listGames();
+
+    $("#loans-dialog-title").textContent = "Emprunts de " + member.name;
+    $("#loans-empty").hidden = loans.length > 0;
+    $("#loans-list").replaceChildren(...loans.map((loan) => loanRow(loan, games)));
+
+    loansDialog.showModal();
+  });
+}
+
+
 // --- Adhérent·es -----------------------------------------------------------
 
 async function loadMembers() {
@@ -215,6 +271,7 @@ function memberRow(member) {
   const actions = el("div", { class: "actions" });
   actions.append(button("Modifier", () => openEditMemberDialog(member)));
   actions.append(button("Supprimer", () => openDeleteMemberDialog(member), "danger"));
+  actions.append(button("Emprunts", () => openLoansDialog(member)));
 
   return el(
     "li",

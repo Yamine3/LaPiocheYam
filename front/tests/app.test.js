@@ -3,6 +3,7 @@ import { mountApp } from "./helpers.js";
 
 const catan = { id: "g1", title: "Catan", minPlayers: 3, maxPlayers: 4, durationMinutes: 90, isAvailable: true };
 const dixit = { id: "g2", title: "Dixit", minPlayers: 3, maxPlayers: 6, durationMinutes: 30, isAvailable: false };
+const tagteam = { id: "g3", title: "Tag Team", minPlayers: 2, maxPlayers: 2, durationMinutes: 15, isAvailable: false };
 const camille = { id: "m1", name: "Camille", email: "camille@example.com" };
 
 const cardOf = (app, title) => app.$$("#games-list .card").find((card) => card.querySelector("h3").textContent === title);
@@ -163,6 +164,69 @@ test("borrowing without any member explains that one must be added first", async
   app.click("Emprunter", cardOf(app, "Catan"));
   await waitFor(() => app.$("#toasts").textContent.includes("Ajoutez d'abord"), "le message d'aide");
   assertTrue(!app.$("#borrow-dialog").open, "la boîte d'emprunt ne doit pas s'ouvrir");
+});
+
+const catanLoan = { 
+  id: "l1", 
+  gameID: "g1", 
+  memberID: "m1", 
+  borrowedAt: "2020-01-01T12:00:00Z", 
+  dueAt: "2020-01-15T12:00:00Z", 
+  returnedAt: "2020-01-10T12:00:00Z" 
+};
+const dixitLoan = { 
+  id: "l2", 
+  gameID: "g2", 
+  memberID: "m1", 
+  borrowedAt: "2999-01-01T12:00:00Z",
+  dueAt: "2999-01-15T12:00:00Z", 
+  returnedAt: null 
+};
+const tagteamLoan = { 
+  id: "l3", 
+  gameID: "g3", 
+  memberID: "m1", 
+  borrowedAt: "2020-02-01T12:00:00Z", 
+  dueAt: "2020-02-15T12:00:00Z", 
+  returnedAt: null };
+
+test("list member loans with all status", async () => {
+  const app = await mountApp(
+    {
+      "GET /members": [camille],
+      "GET /games": [catan, dixit, tagteam],
+      "GET /members/m1/loans": [catanLoan, dixitLoan, tagteamLoan],
+    },
+    { hash: "#members" },
+  );
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  app.click("Emprunts", app.$("#members-list .row"));
+  await waitFor(() => app.$("#loans-dialog").open, "la boîte de liste d'emprunts");
+  await waitFor(() => app.$$("#loans-list .row").length === 3, "les 3 emprunts");
+
+  const rows = app.$$("#loans-list .row");
+  assertIncludes(rows[0].textContent, "Catan");
+  assertIncludes(rows[0].textContent, "Rendu");
+  assertIncludes(rows[1].textContent, "Dixit");
+  assertIncludes(rows[1].textContent, "En cours");
+  assertIncludes(rows[2].textContent, "Tag Team");
+  assertIncludes(rows[2].textContent, "En retard");
+});
+
+test("list member loans with no loans", async () => {
+  const app = await mountApp(
+    {
+      "GET /members": [camille],
+      "GET /games": [catan],
+      "GET /members/m1/loans": [],
+    },
+    { hash: "#members" },
+  );
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  app.click("Emprunts", app.$("#members-list .row"));
+  await waitFor(() => app.$("#loans-dialog").open, "la boîte de liste d'emprunts");
+  assertEqual(app.$$("#loans-list .row").length, 0);
+  assertTrue(!app.$("#loans-empty").hidden, "le message de liste vide devrait être visible");
 });
 
 // --- Adhérent·es
