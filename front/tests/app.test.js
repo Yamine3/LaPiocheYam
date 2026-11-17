@@ -229,6 +229,19 @@ test("list member loans with no loans", async () => {
   assertTrue(!app.$("#loans-empty").hidden, "le message de liste vide devrait être visible");
 });
 
+test("returning a game already returned", async () => {
+  const app = await mountApp({
+    "GET /games": [dixit],
+    "GET /members": [camille],
+    "GET /members/m1/loans": [dixitLoan],
+    "POST /loans/l2/return": [409, { error: true, reason: "Loan is already returned" }],
+  });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.click("Rendre", cardOf(app, "Dixit"));
+
+  await waitFor(() => app.$("#toasts").textContent.includes("déjà été rendu"), "le message d'erreur");
+});
+
 // --- Adhérent·es
 
 test("members tab lists the members", async () => {
