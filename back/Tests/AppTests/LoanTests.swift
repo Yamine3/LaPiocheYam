@@ -46,6 +46,23 @@ final class LoanTests: XCTestCase {
             }
         }
     }
+    
+    func testReturnLoan() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let member = try await createMember(app)
+
+            var loan: LoanDTO!
+            try await borrow(app, gameID: game.id!, memberID: member.id!) { res in
+                loan = try res.content.decode(LoanDTO.self)
+            }
+            let loanID = loan.id!
+
+            try await app.test(.POST, "loans/\(loanID)/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+            })
+        }
+    }
 
     func testBorrowedGameIsNoLongerAvailable() async throws {
         try await withApp { app in
