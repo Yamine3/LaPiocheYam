@@ -140,4 +140,27 @@ final class GameTests: XCTestCase {
             
         }
     }
+    
+    func testSearchGames() async throws {
+        try await withApp { app in
+            try await Game(title: "Catan", minPlayers: 3, maxPlayers: 4, durationMinutes: 90).save(on: app.db)
+            try await Game(title: "Dixit", minPlayers: 3, maxPlayers: 6, durationMinutes: 30).save(on: app.db)
+            try await Game(title: "Tag Team", minPlayers: 2, maxPlayers: 2, durationMinutes: 15).save(on: app.db)
+
+            try await app.test(.GET, "games?players=3&maxDuration=45", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                let games = try res.content.decode([GameDTO].self)
+                XCTAssertEqual(games.count, 1)
+                XCTAssertEqual(games[0].title, "Dixit")
+            })
+        }
+    }
+
+    func testSearchGamesWithNoPlayers() async throws {
+        try await withApp { app in
+            try await app.test(.GET, "games?players=0", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
 }

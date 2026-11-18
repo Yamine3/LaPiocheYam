@@ -13,9 +13,41 @@ struct GameController: RouteCollection {
     
     @Sendable
     func index(req: Request) async throws -> [GameDTO] {
-        let games = try await Game.query(on: req.db)
+        var games = try await Game.query(on: req.db)
             .with(\.$loans)
             .all()
+        
+        if let q = req.query[String.self, at: "q"] {
+            games = games.filter {
+                $0.title.lowercased().contains(q.lowercased())
+            }
+        }
+
+        if let text = req.query[String.self, at: "players"] {
+            guard let players = Int(text), players > 0 else {
+                throw Abort(
+                    .badRequest,
+                    reason: "players must be a positive number"
+                )
+            }
+            games = games.filter {
+                $0.minPlayers <= players && $0.maxPlayers >= players
+            }
+        }
+
+        if let text = req.query[String.self, at: "maxDuration"] {
+            guard let maxDuration = Int(text), maxDuration > 0 else {
+                throw Abort(
+                    .badRequest,
+                    reason: "maxDuration must be a positive number"
+                )
+            }
+            games = games.filter {
+                $0.durationMinutes <= maxDuration
+            }
+        }
+
+        
         return games.map { $0.toDTO() }
     }
     
@@ -71,7 +103,10 @@ struct GameController: RouteCollection {
         let game = try await findGame(req)
         
         guard game.loans.isEmpty else {
-            throw Abort(.conflict, reason: "A game with loans cannot be deleted")
+            throw Abort(
+                .conflict,
+                reason: "A game with loans cannot be deleted"
+            )
         }
         
         try await req.db.transaction { db in
@@ -79,4 +114,5 @@ struct GameController: RouteCollection {
         }
         return .noContent
     }
+
 }
