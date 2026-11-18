@@ -69,7 +69,7 @@ function bindSubmit(dialog, form, handler) {
 
 // --- Onglets ---------------------------------------------------------------
 
-const tabs = ["games", "members"];
+const tabs = ["games", "members", "overdue"];
 
 function currentTab() {
   const name = location.hash.slice(1);
@@ -82,7 +82,14 @@ async function refresh() {
     $(`#${name}`).hidden = name !== tab;
     $(`[data-tab="${name}"]`).toggleAttribute("aria-current", name === tab);
   }
-  await run(tab === "games" ? loadGames : loadMembers);
+  if (tab === "games") {
+    await run(loadGames);
+  } else if (tab === "members") {
+    await run(loadMembers);
+  } else {
+    await run(loadOverdue);
+  }
+  await updateOverdueCount();
 }
 
 window.addEventListener("hashchange", refresh);
@@ -179,7 +186,7 @@ $("#confirm-delete").addEventListener("click", async function () {
 });
 
 function findGame(games, gameID) {
-  for(const game of games) {
+  for (const game of games) {
     if (game.id == gameID) {
       return game;
     }
@@ -285,6 +292,51 @@ async function openLoansDialog(member) {
 
     loansDialog.showModal();
   });
+}
+
+// --- Emprunts en retard -----------------------------------------------------------
+
+
+function findMember(members, memberID) {
+  for (const member of members) {
+    if (member.id === memberID) {
+      return member;
+    }
+  }
+  return null;
+}
+
+function daysLate(loan) {
+  const days = Math.floor((Date.now() - new Date(loan.dueAt)) / (24 * 60 * 60 * 1000));
+  return Math.max(1, days);
+}
+
+function overdueRow(loan, games, members) {
+  const game = findGame(games, loan.gameID);
+  const member = findMember(members, loan.memberID);
+  const title = game === null ? "Jeu inconnu" : game.title;
+  const name = member === null ? "Adhérent·e inconnu·e" : member.name;
+  const days = daysLate(loan);
+
+  return el(
+    "li",
+    { class: "row late" },
+    el(
+      "div",
+      { class: "row-main" },
+      el("p", {}, el("strong", {}, title)),
+      el("p", { class: "meta" }, name + " · à rendre avant le " + formatDate(loan.dueAt)),
+    ),
+    el("span", { class: "badge late" }, days === 1 ? "1 jour de retard" : days + " jours de retard"),
+  );
+}
+
+async function loadOverdue() {
+  const loans = await api.listOverdueLoans();
+  const games = await api.listGames();
+  const members = await api.listMembers();
+  $("#overdue-empty").hidden = loans.length > 0;
+  $("#overdue-list").replaceChildren(...loans.map((loan) => overdueRow(loan, games, members)));
 }
 
 // --- Adhérent·es -----------------------------------------------------------

@@ -14,6 +14,7 @@
     <nav aria-label="Sections">
       <a href="#games" data-tab="games">Jeux</a>
       <a href="#members" data-tab="members">Adhérent·es</a>
+      <a href="#overdue" id="overdue-tab" data-tab="overdue">En retard</a>
     </nav>
     <a class="docs-link" id="docs-link" href="http://localhost:8081/">Documentation API</a>
   </header>
@@ -113,6 +114,14 @@
       <button type="button" data-cancel>Fermer</button>
     </div>
   </dialog>
+
+  <section id="overdue" class="tab" hidden>
+    <div class="section-head">
+      <h2>Emprunts en retard</h2>
+    </div>
+    <p id="overdue-empty" class="empty" hidden>Aucun emprunt en retard pour le moment.</p>
+    <ul id="overdue-list" class="rows"></ul>
+  </section>
 
   <div id="toasts" role="status" aria-live="polite"></div>
 
