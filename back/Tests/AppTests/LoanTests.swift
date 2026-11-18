@@ -111,4 +111,38 @@ final class LoanTests: XCTestCase {
             }
         }
     }
+    
+    func testOverdueInList() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let member = try await createMember(app)
+            let loan = Loan(
+                gameID: game.id!,
+                memberID: member.id!,
+                borrowedAt: Date().addingTimeInterval(-20 * 24 * 3600),
+                dueAt: Date().addingTimeInterval(-6 * 24 * 3600)
+            )
+            try await loan.save(on: app.db)
+
+            try await app.test(.GET, "loans/overdue", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                let overdue = try res.content.decode([LoanDTO].self)
+                XCTAssertEqual(overdue.count, 1)
+                XCTAssertEqual(overdue[0].id, loan.id)
+            })
+        }
+    }
+
+    func testLoanIsNotOverdue() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let member = try await createMember(app)
+            try await borrow(app, gameID: game.id!, memberID: member.id!) { _ in }
+
+            try await app.test(.GET, "loans/overdue", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode([LoanDTO].self).count, 0)
+            })
+        }
+    }
 }
